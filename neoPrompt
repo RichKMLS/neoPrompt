@@ -1,0 +1,42 @@
+#!/bin/bash
+#
+#  neoPrompt - 8/05/2022
+#
+#  a basic bash script to allow a user to copy and 
+#	   paste large amounts of text (single or multiple lines) 
+#	   to be used as prompts for gpt-neox
+#
+#  a while true loop allows user to continuously paste
+#	   in new text after each output
+#
+
+clear 
+
+while true; do
+
+	neoprompt=() #  allows for multiline prompt for ctrl+v purposes
+		           #    after pasting click enter and then ctrl+d to prompt neox
+
+	echo -e "\n------------------------------------------------------"
+	echo -e "\n  neoPrompt\n------------------------------------------------------\n "
+
+	while read promptlines; do neoprompt+=($promptlines); done
+
+	echo "${neoprompt[@]}" > /home/$USER/ai/gpt-neox/files/theinput.txt; 
+
+	echo -e "\n------------------------------------------------------\n" 
+
+	#run neox command.
+	python ./deepy.py generate.py -d configs 20B.yml text_generation.yml &> /dev/null; wait
+
+	cat /home/$USER/ai/gpt-neox/files/theoutput.txt | \ 
+		jq -r | \                                       
+		head -3 | \            
+		tail -1 | \                     #  output neox output in human readable format.
+		sed 's/\\n/\n/g' | \            #  different pipes may need to be used depending
+		sed 's/\\"/"/g' | \             #    on what you are trying to output
+		sed 's/"text": "//g' | \
+		sed -e 's/^[ \t]*//' | \
+		sed '$ s/",$//'
+done
+
