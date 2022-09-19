@@ -1,42 +1,139 @@
 #!/bin/bash
 #
-#  neoPrompt - 8/05/2022
+#  -------------------------------------------------------------------------------
 #
-#  a basic bash script to allow a user to copy and 
-#	   paste large amounts of text (single or multiple lines) 
-#	   to be used as prompts for gpt-neox
+#  8/05/2022 - neoPrompt
 #
-#  a while true loop allows user to continuously paste
-#	   in new text after each output
+#       A bash script to allow a user to type and/or copy and paste large 
+#       amounts of text (single or multiple lines) to be used as prompts 
+#       for gpt-neox 20B : https://github.com/EleutherAI/gpt-neox
 #
+#       A while true loop allows user to continuously paste
+#       in new text after each output.
+#
+#  -------------------------------------------------------------------------------
+#
+#  9/19/2022 - prompt variables & conda (and more comments)
+#  
+#       Added an initial 'proof of concept' for the script to show how 
+#       prompt variables may be used to generate better outputs. 
+#
+#       As of now, starting your prompt with "#Q" will define your prompt 
+#       as a question and will start the prompt with with the text:
+#       "Trending Question: " and end it with "Top Rated Answer: "
+#
+#       This will allow for easier question based prompting.
+#       This specific prompt variable may change and/or new prompt
+#       variables will be added if and when better prompting methods 
+#       are discovered.
+#
+#       Incorporated conda environment into script for ease of use. My neox 
+#	conda environment list can be found in the neoPrompt repository
+#
+#       more comments have been added to explain certain lines :)
+#
+#  -------------------------------------------------------------------------------
+#
+#
+#
+#
+#                                   neoPrompt        
+# 
+#                    https://github.com/originates/neoPrompt/
+#
+#
+#
+#
+#
+#
+#  Start User Defined Variables
+#  -------------------------------------------------------------------------------
 
-clear 
 
-while true; do
+#define your neox root directory
+neoxDir=$(echo "/home/$USER/ai/gpt-neox")
 
-	neoprompt=() #  allows for multiline prompt for ctrl+v purposes
-		           #    after pasting click enter and then ctrl+d to prompt neox
+#define your neox conda environment name
+neoEnv=$(echo "neox")
 
-	echo -e "\n------------------------------------------------------"
-	echo -e "\n  neoPrompt\n------------------------------------------------------\n "
 
-	while read promptlines; do neoprompt+=($promptlines); done
+#  End User Defined Variables
+#  -------------------------------------------------------------------------------
 
-	echo "${neoprompt[@]}" > /home/$USER/ai/gpt-neox/files/theinput.txt; 
 
-	echo -e "\n------------------------------------------------------\n" 
+cd $neoxDir
 
-	#run neox command.
-	python ./deepy.py generate.py -d configs 20B.yml text_generation.yml &> /dev/null; wait
 
-	cat /home/$USER/ai/gpt-neox/files/theoutput.txt | \ 
-		jq -r | \                                       
-		head -3 | \            
-		tail -1 | \                     #  output neox output in human readable format.
-		sed 's/\\n/\n/g' | \            #  different pipes may need to be used depending
-		sed 's/\\"/"/g' | \             #    on what you are trying to output
-		sed 's/"text": "//g' | \
-		sed -e 's/^[ \t]*//' | \
-		sed '$ s/",$//'
+#define directory for input/output files and create it if it doesnt exist
+promptFileDir=$(echo "$neoxDir/neoPromptfiles"); if [ ! -d $promptFileDir ]; then
+        mkdir -p $promptFileDir; fi
+
+
+#this is needed to activate neox conda environment within bash script
+source /home/$USER/anaconda3/bin/activate && conda activate $neoEnv; wait; clear
+
+
+#print the current conda environment to allow user to verify conda env is active.
+echo "$CONDA_DEFAULT_ENV environment active."
+
+
+#'gracefully' exit when user uses ctrl+c to exit script
+neoLoop=True
+int_trap() { 
+        neoLoop=False; conda deactivate
+        clear; cd; echo -e "\n exiting neoPrompt\n"; exit
+}; trap int_trap INT
+
+
+#begin neox prompting input/output loop
+while [ $neoLoop == True ]; do
+
+
+        neoprompt=() # allows for multiline prompt for ctrl+v purposes
+                     # after pasting click enter and then ctrl+d to prompt neox
+
+        echo -e "\n------------------------------------------------------"
+        echo -e "\n  neoPrompt\n------------------------------------------------------\n "
+
+
+        #add each line pasted/typed to $neoprompt
+        while read promptlines; do neoprompt+=($promptlines); done
+
+
+        #check for prompt variable(s) and modify prompt to reflect prompt variable
+        #currently a basic implementation of this idea
+        if [[ ${neoprompt[0]} == "#Q" ]]; then 
+                neoprompt[0]="Trending Question:"
+                neoprompt[${#neoprompt[@]}]="Top Rated Answer: The"
+        fi
+
+
+        #after user types ctrl+d: print the neoprompt to theinput.txt file
+        echo "${neoprompt[@]}" > $promptFileDir/theinput.txt
+
+
+        echo -e "\n------------------------------------------------------\n" 
+
+
+        #run neox command using the new theinput.txt file
+        python ./deepy.py generate.py -d configs 20B.yml text_generation.yml \
+                -i $promptFileDir/theinput.txt \
+                -o $promptFileDir/theoutput.txt &> /dev/null
+
+
+        wait
+
+
+        # output neox output in human readable format.
+        cat $promptFileDir/theoutput.txt | \
+                jq -r | \
+                head -3 | \
+                tail -1 | \
+                sed 's/\\n/\n/g' | \
+                sed 's/\\"/"/g' | \
+                sed 's/"text": "//g' | \
+                sed -e 's/^[ \t]*//' | \
+                sed '$ s/",$//'; wait
+
+
 done
-
