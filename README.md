@@ -27,7 +27,7 @@ a bash script to allow the user to easily type and/or paste text with an arbitra
        variables will be added if and when better prompting methods 
        are discovered.
 
-       Incorporated conda environment into script for ease of use. My neox 
-	     conda environment list can be found in the neoPrompt repository
+       Incorporated conda environment into script for ease of use. 
+       My neox conda environment list can now be found in the neoPrompt repository
 
        more comments have been added to explain certain lines :)
